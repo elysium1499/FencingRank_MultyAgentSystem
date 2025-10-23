@@ -14,28 +14,28 @@ public class Fencer extends Agent {
     public String rank;
 
     protected void setup() {
-        Object[] args = getArguments();
-        if (args != null && args.length == 8) {
-            name = (String) args[0];
-            experience = (String) args[1];
-            speed = (String) args[2];
-            parry = (String) args[3];
-            stopTrust = (String) args[4];
-            feint = (String) args[5];
-            emotion = (String) args[6];
-            rank = (String) args[7];
+        Object[] fencerField = getArguments();
+        if (fencerField != null && fencerField.length == 8) {
+            name = (String) fencerField[0];
+            experience = (String) fencerField[1];
+            speed = (String) fencerField[2];
+            parry = (String) fencerField[3];
+            stopTrust = (String) fencerField[4];
+            feint = (String) fencerField[5];
+            emotion = (String) fencerField[6];
+            rank = (String) fencerField[7];
 
             // Behaviour to send the registration
             addBehaviour(new OneShotBehaviour() {
                 public void action() {
-                    ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-                    msg.addReceiver(new jade.core.AID("organizer", jade.core.AID.ISLOCALNAME));
-                    msg.setContent(getAID().getLocalName() + "," + name + "," + rank);
-                    send(msg);
+                    ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
+                    mex.addReceiver(new jade.core.AID("organizer", jade.core.AID.ISLOCALNAME));
+                    mex.setContent(getAID().getLocalName() + "," + name + "," + rank);
+                    send(mex);
                 }
             });
         } else {
-            System.out.println("Invalid arguments for agent " + getLocalName());
+            System.out.println("CSV column miss: " + getLocalName());
         }
 
         addBehaviour(new HandleBout());
@@ -45,19 +45,17 @@ public class Fencer extends Agent {
         private boolean registered = false;
 
         public void action() {
-            ACLMessage msg = receive();
-            if (msg != null) {
-                String conversationId = msg.getConversationId();
-
+            ACLMessage mex = receive();
+            if (mex != null) {
                 // Registration confirm
-                if (!registered && msg.getPerformative() == ACLMessage.CONFIRM) {
+                if (!registered && mex.getPerformative() == ACLMessage.CONFIRM) {
                     registered = true;
                 }
                 
                 //bout information: receive referee message about bout
-                if (registered && msg.getPerformative() == ACLMessage.INFORM && "bout".equals(conversationId)) {
+                if (registered && mex.getPerformative() == ACLMessage.INFORM && "bout".equals(mex.getConversationId())) {
                     // answer to referee with ability data
-                    ACLMessage reply = msg.createReply();
+                    ACLMessage reply = mex.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
                     reply.setConversationId("ability");
                     reply.setContent(name + "," + experience + "," + speed + "," + parry + "," + stopTrust + "," + feint + "," + emotion);
@@ -65,11 +63,8 @@ public class Fencer extends Agent {
                 }
 
                 //elimination: partecipate or not at next step
-                if (registered && msg.getPerformative() == ACLMessage.INFORM && "elimination".equals(conversationId)) {
-                    if ("ELIMINATED".equals(msg.getContent())) {
-                        //System.out.println("Turn off the agent for rank elimination: " + name + "(" + getLocalName() + ")");
-                        doDelete();
-                    }
+                if (registered && mex.getPerformative() == ACLMessage.INFORM && "elimination".equals(mex.getConversationId())) {
+                    doDelete();
                 }
             } else {
                 block();

@@ -29,22 +29,23 @@ public class Organizer extends Agent {
     }
 
     private class Registrations extends Behaviour {
-        private long lastMessageTime = System.currentTimeMillis();
+        private long time = System.currentTimeMillis();
 
         public void action() {
             boolean receivedAny = false;
-            ACLMessage msg;
+            ACLMessage mex;
             
             // wait to receive all the fencer registration
-            while ((msg = receive()) != null) {
-                if (msg.getPerformative() == ACLMessage.INFORM) {
-                    lastMessageTime = System.currentTimeMillis();  // reset timer
-                    String[] fencer = msg.getContent().split(",");
+            while ((mex = receive()) != null) {
+                if (mex.getPerformative() == ACLMessage.INFORM) {
+                    time = System.currentTimeMillis();  // reset timer
+
+                    String[] fencer = mex.getContent().split(",");
                     registeredFencer.put(fencer[0], new String[]{fencer[1], fencer[2]});
                     fencerStats.put(fencer[0], new int[]{0, 0, 0});
 
                     // Send confirmation reply
-                    ACLMessage reply = msg.createReply();
+                    ACLMessage reply = mex.createReply();
                     reply.setPerformative(ACLMessage.CONFIRM);
                     send(reply);
 
@@ -55,8 +56,8 @@ public class Organizer extends Agent {
             // If i dont receive nothing for 10 second i clore registration
             if (!receivedAny) {
                 long now = System.currentTimeMillis();
-                if (!registrationClosed && now - lastMessageTime >= 10_000) {
-                    System.out.println("No new registrations. Closing registration.");
+                if (!registrationClosed && now - time >= 10_000) {
+                    System.out.println("Closing registration.");
                     generatePools();
                     registrationClosed = true;
                 } else {
@@ -81,18 +82,15 @@ public class Organizer extends Agent {
             orderedFencers.sort(Comparator.comparingInt(e -> Integer.parseInt(e.getValue()[1])));
 
             //compute the number of pool
-            int totalFencers = orderedFencers.size();
-            int numPools = (int) Math.ceil((double) totalFencers / 7); //max pool dimension must be 7
+            int numPools = (int) Math.ceil((double) orderedFencers.size() / 7); //max pool dimension must be 7
             
-            for (int i = 1; i <= numPools; i++) {
-                pools.put(i, new ArrayList<>());
-            }
+            for (int i = 1; i <= numPools; i++) pools.put(i, new ArrayList<>());
 
             //assign fencer to pool in balancing way
             int index = 0;
-            for (Map.Entry<String, String[]> player : orderedFencers) {
-                String fencerName = player.getValue()[0];
-                String fencerAID = player.getKey();
+            for (Map.Entry<String, String[]> fencer : orderedFencers) {
+                String fencerName = fencer.getValue()[0];
+                String fencerAID = fencer.getKey();
                 int poolNumber = (index % numPools) + 1;
 
                 pools.get(poolNumber).add(new String[]{fencerName, fencerAID});
@@ -122,7 +120,6 @@ public class Organizer extends Agent {
                     AID refereeAID = dfad.getName();
                     ACLMessage req = new ACLMessage(ACLMessage.REQUEST);
                     req.addReceiver(refereeAID);
-                    req.setContent("Are you available to referee?");
                     send(req);
                 }
 
@@ -137,23 +134,22 @@ public class Organizer extends Agent {
                     }
                 }
 
-                //---------------------------------------se gli arbitri non sono abbastanza? fare come nelle dirette
                 // Chose n random referee
-                List<Map.Entry<AID, String>> refereeList = new ArrayList<>(availableReferees.entrySet());
-                Collections.shuffle(refereeList);
-                List<Map.Entry<AID, String>> chosenReferees = refereeList.subList(0, Math.min(numPools, refereeList.size()));
+                List<Map.Entry<AID, String>> availableReferee = new ArrayList<>(availableReferees.entrySet());
+                Collections.shuffle(availableReferee);
+                List<Map.Entry<AID, String>> chosenReferees = availableReferee.subList(0, Math.min(numPools, availableReferee.size()));
                  
                 //answer at referee the assigned pool
                 for (int j = 0; j < chosenReferees.size(); j++) {
-                    AID refereeAID = chosenReferees.get(j).getKey();
+                    AID refereeAIDName = chosenReferees.get(j).getKey();
                     String refereeName = chosenReferees.get(j).getValue();
 
-                    poolReferees.add(new String[]{refereeAID.getLocalName(), refereeName});
+                    poolReferees.add(new String[]{refereeAIDName.getLocalName(), refereeName});
 
                     //answer at referee
-                    ACLMessage assignMsg = new ACLMessage(ACLMessage.INFORM);
-                    assignMsg.addReceiver(refereeAID);
-                    assignMsg.setConversationId("PoolComposition");
+                    ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
+                    mex.addReceiver(refereeAIDName);
+                    mex.setConversationId("PoolComposition");
 
                     StringBuilder contentBuilder = new StringBuilder();
                     contentBuilder.append(j + 1); // pool number in head
@@ -163,8 +159,8 @@ public class Organizer extends Agent {
                         contentBuilder.append(",").append(fencer[1]); 
                     }
 
-                    assignMsg.setContent(contentBuilder.toString()); //all body are AID of fencer
-                    send(assignMsg);
+                    mex.setContent(contentBuilder.toString()); //all body are AID of fencer
+                    send(mex);
 
                     int poolNumber = j + 1;
                     if (gui != null) {
@@ -184,11 +180,11 @@ public class Organizer extends Agent {
 
     private class FightResults extends CyclicBehaviour {
         public void action() {
-            ACLMessage msg = receive();
-            if (msg != null){
-                String conversationId = msg.getConversationId();
-                if(msg.getPerformative() == ACLMessage.INFORM && "resultBout".equals(conversationId)) {
-                    String[] parts = msg.getContent().split(",");
+            ACLMessage mex = receive();
+            if (mex != null){
+                String conversationId = mex.getConversationId();
+                if(mex.getPerformative() == ACLMessage.INFORM && "resultBout".equals(conversationId)) {
+                    String[] parts = mex.getContent().split(",");
                     if (parts.length == 5) {
                         int poolNumber = Integer.parseInt(parts[0]);
                         String fencer1AID = parts[1];
@@ -219,7 +215,7 @@ public class Organizer extends Agent {
                             });
                         }
                     }
-                }else if(msg.getPerformative() == ACLMessage.INFORM && "poolEnd".equals(conversationId)) {
+                }else if(mex.getPerformative() == ACLMessage.INFORM && "poolEnd".equals(conversationId)) {
                     numPoolComplete ++;
                     if (numPoolComplete==pools.size()) { //wait that all pool are end
                         System.out.println("Pools are end");
@@ -246,8 +242,8 @@ public class Organizer extends Agent {
                         eliminateWeakFencers();
                         calculateStartTree();
                     }
-                }else if(msg.getPerformative() == ACLMessage.INFORM && "resultDirectBout".equals(conversationId)){
-                    String parts = msg.getContent();
+                }else if(mex.getPerformative() == ACLMessage.INFORM && "resultDirectBout".equals(conversationId)){
+                    String parts = mex.getContent();
                     if (!winners.contains(parts)) {
                         winners.add(parts);
                     }
@@ -322,24 +318,23 @@ public class Organizer extends Agent {
 
         private void eliminateWeakFencers() {
             // Remove fencer with low victory (<=2)
-            for (Map.Entry<String, int[]> entry : new HashMap<>(fencerStats).entrySet()) {
-                String fencerAID = entry.getKey();
-                int[] stats = entry.getValue();
+            for (Map.Entry<String, int[]> fencerFild : new HashMap<>(fencerStats).entrySet()) {
+                String fencerAID = fencerFild.getKey();
+                int[] stats = fencerFild.getValue();
                 int victories = stats[0];
 
                 if (victories <= 2) {
-                    System.out.println("Eliminating: " + registeredFencer.get(fencerAID)[0] + " (Victories: " + victories + ")");
+                    System.out.println("Eliminating: " + registeredFencer.get(fencerAID)[0]);
 
-                    ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-                    msg.setConversationId("elimination");
-                    msg.addReceiver(new AID(fencerAID, AID.ISLOCALNAME));
-                    msg.setContent("ELIMINATED");
-                    send(msg);      
+                    ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
+                    mex.setConversationId("elimination");
+                    mex.addReceiver(new AID(fencerAID, AID.ISLOCALNAME));
+                    send(mex);      
 
                     fencerStats.remove(fencerAID);
 
-                    for (List<String[]> poolList : pools.values()) {
-                        poolList.removeIf(f -> f[1].equals(fencerAID));
+                    for (List<String[]> poolFencerList : pools.values()) {
+                        poolFencerList.removeIf(f -> f[1].equals(fencerAID));
                     }
                 }
             }
@@ -358,38 +353,37 @@ public class Organizer extends Agent {
             if (toEliminate > 0) {
                 for (int i = 0; i < toEliminate; i++) {
                     String worstFencerID = null;
-                    int worstVictories = Integer.MAX_VALUE;
-                    int worstStoccateRicevute = Integer.MIN_VALUE;
+                    int worstFencerVictories = Integer.MAX_VALUE;
+                    int worstFencerSR = Integer.MIN_VALUE;
 
                     // Find baddest fencer
-                    for (Map.Entry<String, int[]> entry : fencerStats.entrySet()) {
-                        String fencerAID = entry.getKey();
-                        int[] stats = entry.getValue();
+                    for (Map.Entry<String, int[]> fencerFild : fencerStats.entrySet()) {
+                        String fencerAID = fencerFild.getKey();
+                        int[] stats = fencerFild.getValue();
                         int victories = stats[0];
-                        int stoccateRicevute = stats[2];
+                        int SR = stats[2];
 
-                        if (worstFencerID == null || victories < worstVictories || (victories == worstVictories && stoccateRicevute > worstStoccateRicevute)) {
+                        if (worstFencerID == null || victories < worstFencerVictories || (victories == worstFencerVictories && SR > worstFencerSR)) {
                             worstFencerID = fencerAID;
-                            worstVictories = victories;
-                            worstStoccateRicevute = stoccateRicevute;
+                            worstFencerVictories = victories;
+                            worstFencerSR = SR;
                         }
                     }
 
                     if (worstFencerID != null && fencerStats.containsKey(worstFencerID)) {
-                        final String toEliminateID = worstFencerID;
+                        final String eliminateID = worstFencerID;
 
-                        System.out.println("Eliminating: " + toEliminateID);
+                        System.out.println("Eliminate: " + eliminateID);
 
                         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
                         msg.setConversationId("elimination");
-                        msg.addReceiver(new AID(toEliminateID, AID.ISLOCALNAME));
-                        msg.setContent("ELIMINATED");
+                        msg.addReceiver(new AID(eliminateID, AID.ISLOCALNAME));
                         send(msg);
 
-                        fencerStats.remove(toEliminateID);
+                        fencerStats.remove(eliminateID);
 
-                        for (List<String[]> poolList : pools.values()) {
-                            poolList.removeIf(f -> f[1].equals(toEliminateID));
+                        for (List<String[]> poolFencerList : pools.values()) {
+                            poolFencerList.removeIf(f -> f[1].equals(eliminateID));
                         }
                     }
                 }
@@ -397,26 +391,28 @@ public class Organizer extends Agent {
         }
 
         private void calculateStartTree() {
-            List<Object[]> fencersList = new ArrayList<>();
+            List<Object[]> fencersStatsList = new ArrayList<>();
 
-            for (Map.Entry<String, int[]> entry : fencerStats.entrySet()) {
-                String fencerAID = entry.getKey();
-                int[] stats = entry.getValue();
-                fencersList.add(new Object[]{stats[0], stats[1] - stats[2], stats[1], stats[2], fencerAID}); //numVictory, SD-SR, SD, SR, fencerID
+            for (Map.Entry<String, int[]> fencerField : fencerStats.entrySet()) {
+                String fencerAID = fencerField.getKey();
+                int[] stats = fencerField.getValue();
+                fencersStatsList.add(new Object[]{stats[0], stats[1] - stats[2], stats[1], stats[2], fencerAID}); //numVictory, SD-SR, SD, SR, fencerID
             }
 
-            fencersList.sort((o1, o2) -> {
-                // Integer.compare(x, y) return -1 if x<y, 1 if x>y
+            fencersStatsList.sort((f1, f2) -> {
                 // sort follow rank precedence rules
-                if ((int) o2[0] != (int) o1[0]) return Integer.compare((int) o2[0], (int) o1[0]); //who do more victory
-                if ((int) o2[1] != (int) o1[1]) return Integer.compare((int) o2[1], (int) o1[1]); //who do more point 
-                if ((int) o2[2] != (int) o1[2]) return Integer.compare((int) o2[2], (int) o1[2]); //who do more SD
-                return Integer.compare((int) o1[3], (int) o2[3]); //who have less SR
+                if ((int) f2[0] != (int) f1[0]) 
+                    return Integer.compare((int) f2[0], (int) f1[0]); //who do more victory
+                if ((int) f2[1] != (int) f1[1]) 
+                    return Integer.compare((int) f2[1], (int) f1[1]); //who do more point 
+                if ((int) f2[2] != (int) f1[2]) 
+                    return Integer.compare((int) f2[2], (int) f1[2]); //who do more SD
+                return Integer.compare((int) f1[3], (int) f2[3]); //who have less SR
             });
 
             
             List<String> orderedFencers = new ArrayList<>();
-            for (Object[] f : fencersList) {
+            for (Object[] f : fencersStatsList) {
                 String fencerAID = (String) f[4];
                 orderedFencers.add(fencerAID);
             }
@@ -424,9 +420,7 @@ public class Organizer extends Agent {
             // for rule who do better go with who do badest
             int n = orderedFencers.size();
             for (int i = 0; i < n / 2; i++) {
-                String fencerAID1 = orderedFencers.get(i);
-                String fencerAID2 = orderedFencers.get(n - 1 - i);
-                eliminationBout.add(new String[]{fencerAID1, fencerAID2});
+                eliminationBout.add(new String[]{orderedFencers.get(i), orderedFencers.get(n - 1 - i)});
             }
 
             for (String[] bout : eliminationBout) {
@@ -447,20 +441,15 @@ public class Organizer extends Agent {
 
         private void SendDirect() {
             //referee assegnation 
-            if (poolReferees.isEmpty()) {
-                System.err.println("No referees assigned! Cannot send direct bouts.");
-                return;  // Or handle error appropriately
-            }
-
             int refereeIndex = 0;
             for (String[] bout : eliminationBout) {
                 String AIDrefereeName = poolReferees.get(refereeIndex)[0];  // safe now since checked above
 
-                ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-                msg.addReceiver(new jade.core.AID(AIDrefereeName, jade.core.AID.ISLOCALNAME));
-                msg.setConversationId("directBout");
-                msg.setContent(bout[0] + "," + bout[1]);
-                send(msg);
+                ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
+                mex.addReceiver(new jade.core.AID(AIDrefereeName, jade.core.AID.ISLOCALNAME));
+                mex.setConversationId("directBout");
+                mex.setContent(bout[0] + "," + bout[1]);
+                send(mex);
 
                 //the number of referee is less than number of direct bout
                 refereeIndex++;
@@ -468,8 +457,8 @@ public class Organizer extends Agent {
                     try {
                         Thread.sleep(5000); // Wait 5 seconds
                         refereeIndex = 0;
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                    } catch (InterruptedException error) {
+                        error.printStackTrace();
                     }
                 }
             }
@@ -478,14 +467,13 @@ public class Organizer extends Agent {
         private void shutdownAllFencers() {
             for (String fencerAIDName : registeredFencer.keySet()) {
                 AID fencerAID = new AID(fencerAIDName, AID.ISLOCALNAME);
-                ACLMessage shutdownMsg = new ACLMessage(ACLMessage.INFORM);
-                shutdownMsg.setConversationId("elimination");
-                shutdownMsg.addReceiver(fencerAID);
-                shutdownMsg.setContent("ELIMINATED");
-                send(shutdownMsg);
+                ACLMessage shutdownMex = new ACLMessage(ACLMessage.INFORM);
+                shutdownMex.setConversationId("elimination");
+                shutdownMex.addReceiver(fencerAID);
+                send(shutdownMex);
             }
 
-            System.out.println("Fencer shutting down");
+            System.out.println("Fencers shutting down");
         }
         
         private void shutdownAllReferees() {
@@ -500,11 +488,10 @@ public class Organizer extends Agent {
 
                 for (DFAgentDescription dfad : referees) {
                     AID refereeAID = dfad.getName();
-                    ACLMessage shutdownMsg = new ACLMessage(ACLMessage.INFORM);
-                    shutdownMsg.setConversationId("discharged");
-                    shutdownMsg.addReceiver(refereeAID);
-                    shutdownMsg.setContent("CLOSED");
-                    send(shutdownMsg);
+                    ACLMessage shutdownMex = new ACLMessage(ACLMessage.INFORM);
+                    shutdownMex.setConversationId("discharged");
+                    shutdownMex.addReceiver(refereeAID);
+                    send(shutdownMex);
                 }
 
                 System.out.println("Referees shutting down");

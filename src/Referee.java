@@ -16,15 +16,15 @@ public class Referee extends Agent {
     private List<String[]> bouts = new ArrayList<>();
     
     //auxiliary variable 
-    private Map<String, String[]> currentBoutAbilities = new HashMap<>();
+    private Map<String, String[]> currentBoutAbilities = new HashMap<>(); //[fencerAIDName, [name, experience, speed, parry, stopTrust, feint, emotion]]
     private String[] currentBout = null; //contain actual bout to compute
     private Boolean direct = false;
 
 
     protected void setup() {
-        Object[] args = getArguments();
-        if (args != null && args.length > 0) {
-            name = (String) args[0];
+        Object[] refereeName = getArguments();
+        if (refereeName != null && refereeName.length > 0) {
+            name = (String) refereeName[0];
 
             // Registrazione nel DF
             DFAgentDescription dfd = new DFAgentDescription();
@@ -49,9 +49,9 @@ public class Referee extends Agent {
     private class Partecipation extends CyclicBehaviour {
         // Say at organizer that referee is available or not
         public void action() {
-            ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
-            if (msg != null) {
-                ACLMessage reply = msg.createReply();
+            ACLMessage mex = receive(MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
+            if (mex != null) {
+                ACLMessage reply = mex.createReply();
                 if (new Random().nextDouble() <= 0.7) {
                     reply.setPerformative(ACLMessage.AGREE);
                     reply.setContent(name);
@@ -76,11 +76,11 @@ public class Referee extends Agent {
                 MessageTemplate.MatchSender(new jade.core.AID("organizer", jade.core.AID.ISLOCALNAME))
             );
 
-            ACLMessage msg = receive(mt);
-            if (msg != null) {
-                String[] parts = msg.getContent().split(","); //[poolNumber, fencer1, fencer2, ...]
-                pool = Integer.parseInt(parts[0]);
-                fencers.addAll(Arrays.asList(parts).subList(1, parts.length));
+            ACLMessage mex = receive(mt);
+            if (mex != null) {
+                String[] poolField = mex.getContent().split(","); //[poolNumber, fencer1, fencer2, ...]
+                pool = Integer.parseInt(poolField[0]);
+                fencers.addAll(Arrays.asList(poolField).subList(1, poolField.length));
                 Collections.sort(fencers);
 
                 createBouts();
@@ -108,35 +108,35 @@ public class Referee extends Agent {
         );
 
         public void action() {
-            ACLMessage msg = receive(MessageTemplate.or(abilityMT, directBoutMT));
-            if (msg != null) {
-                String conversationId = msg.getConversationId();
+            ACLMessage mex = receive(MessageTemplate.or(abilityMT, directBoutMT));
+            if (mex != null) {
+                String conversationId = mex.getConversationId();
 
                 if ("ability".equals(conversationId)) {
-                    String msgSenderName = msg.getSender().getLocalName(); //fencerAID who send ability
-                    String[] parts = msg.getContent().split(",");
-                    currentBoutAbilities.put(msgSenderName, parts);
+                    String mexSenderName = mex.getSender().getLocalName(); //fencerAID who send ability
+                    String[] ability = mex.getContent().split(",");
+                    currentBoutAbilities.put(mexSenderName, ability);
 
                     if (currentBoutAbilities.size() == 1) { //ask the second fencer ability
                         sendBoutMessage(currentBout[1]);
 
                     } else if (currentBoutAbilities.size() == 2) {
-                        String mex = calculateBoutWinner();
+                        String result = calculateBoutWinner();
 
                         if (!direct) {
-                            ACLMessage resultMsg = new ACLMessage(ACLMessage.INFORM);
-                            resultMsg.addReceiver(new AID("organizer", AID.ISLOCALNAME));
-                            resultMsg.setConversationId("resultBout");
-                            resultMsg.setContent(pool + "," + mex);
-                            send(resultMsg);
+                            ACLMessage resultMex = new ACLMessage(ACLMessage.INFORM);
+                            resultMex.addReceiver(new AID("organizer", AID.ISLOCALNAME));
+                            resultMex.setConversationId("resultBout");
+                            resultMex.setContent(pool + "," + result);
+                            send(resultMex);
                         } else {
-                            System.out.println("Direct : "+ mex);
+                            System.out.println("Direct winner : "+ result);
 
-                            ACLMessage resultMsgDirect = new ACLMessage(ACLMessage.INFORM);
-                            resultMsgDirect.addReceiver(new AID("organizer", AID.ISLOCALNAME));
-                            resultMsgDirect.setConversationId("resultDirectBout");
-                            resultMsgDirect.setContent(mex);
-                            send(resultMsgDirect);
+                            ACLMessage resultMexDirect = new ACLMessage(ACLMessage.INFORM);
+                            resultMexDirect.addReceiver(new AID("organizer", AID.ISLOCALNAME));
+                            resultMexDirect.setConversationId("resultDirectBout");
+                            resultMexDirect.setContent(result);
+                            send(resultMexDirect);
                         }
 
                         currentBout = null;
@@ -154,8 +154,8 @@ public class Referee extends Agent {
                         }
                     }
                 } else if ("directBout".equals(conversationId)) {
-                    String[] parts = msg.getContent().split(",");   //fencerAID1,fencerAID2
-                    currentBout = new String[]{parts[0], parts[1]};
+                    String[] directBout = mex.getContent().split(",");   //fencerAID1,fencerAID2
+                    currentBout = new String[]{directBout[0], directBout[1]};
                     direct = true;
                     
                     sendBoutMessage(currentBout[0]);
@@ -170,10 +170,14 @@ public class Referee extends Agent {
         private final MessageTemplate mt = MessageTemplate.MatchConversationId("discharged");
         
         public void action() {
-            ACLMessage msg = receive(mt);
-            if (msg != null) {
-                if ("CLOSED".equals(msg.getContent())) {
-                    try { DFService.deregister(myAgent); } catch (FIPAException e) { e.printStackTrace(); }
+            ACLMessage mex = receive(mt);
+            if (mex != null) {
+                if ("CLOSED".equals(mex.getContent())) {
+                    try { 
+                        DFService.deregister(myAgent); 
+                    } catch (FIPAException e) { 
+                        e.printStackTrace(); 
+                    }
                     doDelete();
                 }
             } else {
@@ -192,10 +196,10 @@ public class Referee extends Agent {
     }
 
     private void sendBoutMessage(String fencer) {
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        msg.addReceiver(new jade.core.AID(fencer, jade.core.AID.ISLOCALNAME));
-        msg.setConversationId("bout");
-        send(msg);
+        ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
+        mex.addReceiver(new jade.core.AID(fencer, jade.core.AID.ISLOCALNAME));
+        mex.setConversationId("bout");
+        send(mex);
     }
 
     private String calculateBoutWinner() {
@@ -208,36 +212,64 @@ public class Referee extends Agent {
         String fencer1 = entries.get(0).getKey();
         String fencer2 = entries.get(1).getKey();
 
-        String[] data1 = entries.get(0).getValue();
-        String[] data2 = entries.get(1).getValue();
+        String[] ability1 = entries.get(0).getValue();
+        String[] ability2 = entries.get(1).getValue();
 
-        // Parsing valori numerici
-        int experience1 = Integer.parseInt(data1[1]);
-        int experience2 = Integer.parseInt(data2[1]);
+        // Parsing numeric value
+        int experience1 = Integer.parseInt(ability1[1]);
+        int experience2 = Integer.parseInt(ability2[1]);
 
-        int speed1 = Integer.parseInt(data1[2]);
-        int speed2 = Integer.parseInt(data2[2]);
+        int speed1 = Integer.parseInt(ability1[2]);
+        int speed2 = Integer.parseInt(ability2[2]);
 
-        int parry1 = Integer.parseInt(data1[3]);
-        int parry2 = Integer.parseInt(data2[3]);
+        int parry1 = Integer.parseInt(ability1[3]);
+        int parry2 = Integer.parseInt(ability2[3]);
 
-        int stopThrust1 = Integer.parseInt(data1[4]);
-        int stopThrust2 = Integer.parseInt(data2[4]);
+        int stopThrust1 = Integer.parseInt(ability1[4]);
+        int stopThrust2 = Integer.parseInt(ability2[4]);
 
-        int feint1 = Integer.parseInt(data1[5]);
-        int feint2 = Integer.parseInt(data2[5]);
+        int feint1 = Integer.parseInt(ability1[5]);
+        int feint2 = Integer.parseInt(ability2[5]);
 
-        int emotional1 = Integer.parseInt(data1[6]);
-        int emotional2 = Integer.parseInt(data2[6]);
+        int emotional1 = Integer.parseInt(ability1[6]);
+        int emotional2 = Integer.parseInt(ability2[6]);
 
         // Ability valutation (parry, stopThrust, feint → con logica "sasso carta forbice")
         int sumFenc1 = 0, sumFenc2 = 0;
-        if (parry1 > stopThrust2 || parry1 == stopThrust2) { sumFenc1 += 1; sumFenc2 -= 1; } else { sumFenc1 -= 1; sumFenc2 += 1; }
-        if (stopThrust1 > feint2 || stopThrust1 == feint2) { sumFenc1 += 1; sumFenc2 -= 1; } else { sumFenc1 -= 1; sumFenc2 += 1; }
-        if (feint1 > parry2 || feint1 == parry2) { sumFenc1 += 1; sumFenc2 -= 1; } else { sumFenc1 -= 1; sumFenc2 += 1; }
+        if (parry1 > stopThrust2 || parry1 == stopThrust2) { 
+            sumFenc1 += 1; 
+            sumFenc2 -= 1; 
+        } else { 
+            sumFenc1 -= 1; 
+            sumFenc2 += 1; 
+        }
 
-        // Somma totale per abilità
-        if (sumFenc1 > sumFenc2) { sumFenc2 = 0; sumFenc1 = 5; } else { sumFenc2 = 5; sumFenc1 = 0; }
+        if (stopThrust1 > feint2 || stopThrust1 == feint2) { 
+            sumFenc1 += 1; 
+            sumFenc2 -= 1; 
+        } 
+        else { 
+            sumFenc1 -= 1;
+            sumFenc2 += 1; 
+        }
+
+        if (feint1 > parry2 || feint1 == parry2) { 
+            sumFenc1 += 1; 
+            sumFenc2 -= 1; 
+        } 
+        else { 
+            sumFenc1 -= 1; 
+            sumFenc2 += 1; 
+        }
+
+        // Final sum of ability point
+        if (sumFenc1 > sumFenc2) { 
+            sumFenc2 = 0; 
+            sumFenc1 = 5; 
+        } else { 
+            sumFenc2 = 5; 
+            sumFenc1 = 0; 
+        }
 
         int totalFencer1 = experience1 + speed1 + sumFenc1 - emotional1;
         int totalFencer2 = experience2 + speed2 + sumFenc2 - emotional2;
@@ -251,17 +283,11 @@ public class Referee extends Agent {
             }
 
             int loserScore;
-            if (percentage >= 0.8) {
-                loserScore = 4;
-            } else if (percentage >= 0.6) {
-                loserScore = 3;
-            } else if (percentage >= 0.4) {
-                loserScore = 2;
-            } else if (percentage >= 0.2) {
-                loserScore = 1;
-            } else {
-                loserScore = 0;
-            }
+            if (percentage >= 0.8) loserScore = 4;
+            else if (percentage >= 0.6) loserScore = 3;
+            else if (percentage >= 0.4) loserScore = 2;
+            else if (percentage >= 0.2) loserScore = 1;
+            else loserScore = 0;
 
             if (totalFencer1 > totalFencer2) {
                 totalFencer1 = 5;
