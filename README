@@ -1,0 +1,5 @@
+Project of Elisa Calza S4700104
+
+Start project from ./project:
+- javac -d bin -cp "lib/*" src/*.java
+- java -cp "bin;lib\*" Main

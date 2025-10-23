@@ -5,25 +5,25 @@ import jade.lang.acl.ACLMessage;
 
 public class Fencer extends Agent {
     public String name;
-    public int experience;
-    public int speed;
-    public int parry;
-    public int stopTrust;
-    public int feint;
-    public int emotion;
-    public int rank;
+    public String experience;
+    public String speed;
+    public String parry;
+    public String stopTrust;
+    public String feint;
+    public String emotion;
+    public String rank;
 
     protected void setup() {
         Object[] args = getArguments();
-        if (args != null && args.length > 0) {
+        if (args != null && args.length == 8) {
             name = (String) args[0];
-            experience = Integer.parseInt((String) args[1]);
-            speed = Integer.parseInt((String) args[2]);
-            parry = Integer.parseInt((String) args[3]);
-            stopTrust = Integer.parseInt((String) args[4]);
-            feint = Integer.parseInt((String) args[5]);
-            emotion = Integer.parseInt((String) args[6]);
-            rank = Integer.parseInt((String) args[7]);
+            experience = (String) args[1];
+            speed = (String) args[2];
+            parry = (String) args[3];
+            stopTrust = (String) args[4];
+            feint = (String) args[5];
+            emotion = (String) args[6];
+            rank = (String) args[7];
 
             // Behaviour to send the registration
             addBehaviour(new OneShotBehaviour() {

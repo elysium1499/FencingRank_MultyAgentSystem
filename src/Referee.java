@@ -102,13 +102,13 @@ public class Referee extends Agent {
             MessageTemplate.MatchConversationId("ability")
         );
         
-        private final MessageTemplate directStartBoutMT = MessageTemplate.and(
+        private final MessageTemplate directBoutMT = MessageTemplate.and(
             MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-            MessageTemplate.MatchConversationId("directStartBout")
+            MessageTemplate.MatchConversationId("directBout")
         );
 
         public void action() {
-            ACLMessage msg = receive(MessageTemplate.or(abilityMT, directStartBoutMT));
+            ACLMessage msg = receive(MessageTemplate.or(abilityMT, directBoutMT));
             if (msg != null) {
                 String conversationId = msg.getConversationId();
 
@@ -130,19 +130,12 @@ public class Referee extends Agent {
                             resultMsg.setContent(pool + "," + mex);
                             send(resultMsg);
                         } else {
-                            String[] inform = mex.split(",");
-                            String winner = null;
-
-                            if (inform[1].equals("5")) winner = inform[0];
-                            else if (inform[3].equals("5")) winner = inform[2];
-                            else throw new IllegalArgumentException("We haven't winner");
-
-                            System.out.println("Direct : "+ winner + " with follow result -> " + mex);
+                            System.out.println("Direct : "+ mex);
 
                             ACLMessage resultMsgDirect = new ACLMessage(ACLMessage.INFORM);
                             resultMsgDirect.addReceiver(new AID("organizer", AID.ISLOCALNAME));
                             resultMsgDirect.setConversationId("resultDirectBout");
-                            resultMsgDirect.setContent(winner);
+                            resultMsgDirect.setContent(mex);
                             send(resultMsgDirect);
                         }
 
@@ -160,21 +153,12 @@ public class Referee extends Agent {
                             send(endMex);
                         }
                     }
-                } else if ("directStartBout".equals(conversationId)) {
-                    String[] parts = msg.getContent().split(",");
+                } else if ("directBout".equals(conversationId)) {
+                    String[] parts = msg.getContent().split(",");   //fencerAID1,fencerAID2
                     currentBout = new String[]{parts[0], parts[1]};
                     direct = true;
-                    if("null".equals(currentBout[1])){
-                        System.out.println("Direct : "+ currentBout[0] + " pass at the next");
-                        ACLMessage resultMsgDirect = new ACLMessage(ACLMessage.INFORM);
-                        resultMsgDirect.addReceiver(new AID("organizer", AID.ISLOCALNAME));
-                        resultMsgDirect.setConversationId("resultDirectBout");
-                        resultMsgDirect.setContent(currentBout[0]);
-                        send(resultMsgDirect);
-                    }
-                    else {
-                        sendBoutMessage(currentBout[0]);
-                    }
+                    
+                    sendBoutMessage(currentBout[0]);
                 }
             } else {
                 block();
@@ -246,7 +230,7 @@ public class Referee extends Agent {
         int emotional1 = Integer.parseInt(data1[6]);
         int emotional2 = Integer.parseInt(data2[6]);
 
-        // Valutazione abilità (parry, stopThrust, feint → con logica "sasso carta forbice")
+        // Ability valutation (parry, stopThrust, feint → con logica "sasso carta forbice")
         int sumFenc1 = 0, sumFenc2 = 0;
         if (parry1 > stopThrust2 || parry1 == stopThrust2) { sumFenc1 += 1; sumFenc2 -= 1; } else { sumFenc1 -= 1; sumFenc2 += 1; }
         if (stopThrust1 > feint2 || stopThrust1 == feint2) { sumFenc1 += 1; sumFenc2 -= 1; } else { sumFenc1 -= 1; sumFenc2 += 1; }
@@ -258,34 +242,43 @@ public class Referee extends Agent {
         int totalFencer1 = experience1 + speed1 + sumFenc1 - emotional1;
         int totalFencer2 = experience2 + speed2 + sumFenc2 - emotional2;
 
-        double percentage = 0;
-        if (totalFencer1 > totalFencer2) {
-            percentage = (double) totalFencer2 / totalFencer1;
-        } else {
-            percentage = (double) totalFencer1 / totalFencer2;
-        }
+        if(!direct){
+            double percentage = 0;
+            if (totalFencer1 > totalFencer2) {
+                percentage = (double) totalFencer2 / totalFencer1;
+            } else {
+                percentage = (double) totalFencer1 / totalFencer2;
+            }
 
-        int loserScore;
-        if (percentage >= 0.8) {
-            loserScore = 4;
-        } else if (percentage >= 0.6) {
-            loserScore = 3;
-        } else if (percentage >= 0.4) {
-            loserScore = 2;
-        } else if (percentage >= 0.2) {
-            loserScore = 1;
-        } else {
-            loserScore = 0;
-        }
+            int loserScore;
+            if (percentage >= 0.8) {
+                loserScore = 4;
+            } else if (percentage >= 0.6) {
+                loserScore = 3;
+            } else if (percentage >= 0.4) {
+                loserScore = 2;
+            } else if (percentage >= 0.2) {
+                loserScore = 1;
+            } else {
+                loserScore = 0;
+            }
 
-        if (totalFencer1 > totalFencer2) {
-            totalFencer1 = 5;
-            totalFencer2 = loserScore;
+            if (totalFencer1 > totalFencer2) {
+                totalFencer1 = 5;
+                totalFencer2 = loserScore;
+            }else{
+                totalFencer1 = loserScore;
+                totalFencer2 = 5;
+            }
+
+            return fencer1 + "," + totalFencer1 + "," + fencer2 + "," + totalFencer2;
+
         }else{
-            totalFencer1 = loserScore;
-            totalFencer2 = 5;
+            if (totalFencer1 > totalFencer2) {
+                return fencer1;
+            }else{
+                return fencer2;
+            }
         }
-
-        return fencer1 + "," + totalFencer1 + "," + fencer2 + "," + totalFencer2;
     }
 }
