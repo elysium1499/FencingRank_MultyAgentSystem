@@ -137,12 +137,21 @@ public class Organizer extends Agent {
                 // Chose n random referee
                 List<Map.Entry<AID, String>> availableReferee = new ArrayList<>(availableReferees.entrySet());
                 Collections.shuffle(availableReferee);
-                List<Map.Entry<AID, String>> chosenReferees = availableReferee.subList(0, Math.min(numPools, availableReferee.size()));
+                List<Map.Entry<AID, String>> chosenReferees = null;
+
+                if(availableReferee.size() > pools.size())
+                    chosenReferees = availableReferee.subList(0, Math.min(numPools, availableReferee.size()));
+                else chosenReferees = availableReferee;
                  
                 //answer at referee the assigned pool
-                for (int j = 0; j < chosenReferees.size(); j++) {
-                    AID refereeAIDName = chosenReferees.get(j).getKey();
-                    String refereeName = chosenReferees.get(j).getValue();
+                ///////////////////////////////////////////////////////////////////////////////////////////////
+                int poolCount = 0, refereeCount = 0;
+                while(poolCount < numPools){
+                //for (int j = 0; j < numPools; j++) {
+                    // AID refereeAIDName = chosenReferees.get(j).getKey();
+                    // String refereeName = chosenReferees.get(j).getValue();
+                    AID refereeAIDName = chosenReferees.get(refereeCount).getKey();
+                    String refereeName = chosenReferees.get(refereeCount).getValue();
 
                     poolReferees.add(new String[]{refereeAIDName.getLocalName(), refereeName});
 
@@ -152,20 +161,35 @@ public class Organizer extends Agent {
                     mex.setConversationId("PoolComposition");
 
                     StringBuilder contentBuilder = new StringBuilder();
-                    contentBuilder.append(j + 1); // pool number in head
+                    //contentBuilder.append(j + 1); // pool number in head
+                    contentBuilder.append(poolCount +1); // pool number in head
                     
-                    List<String[]> fencersInPool = pools.get(j + 1);
+                    // List<String[]> fencersInPool = pools.get(j + 1);
+                    List<String[]> fencersInPool = pools.get(poolCount+1);
                     for (String[] fencer : fencersInPool) {
                         contentBuilder.append(",").append(fencer[1]); 
                     }
 
                     mex.setContent(contentBuilder.toString()); //all body are AID of fencer
                     send(mex);
-
-                    int poolNumber = j + 1;
+                    
+                    // int poolNumber = j + 1;
+                    int poolNumber = poolCount + 1;
                     if (gui != null) {
                         final String finalRefereeName = refereeName;
                         SwingUtilities.invokeLater(() -> gui.updatePoolReferee(poolNumber, finalRefereeName));
+                    }
+
+                    poolCount++;
+                    refereeCount++;
+
+                    if(refereeCount == chosenReferees.size()){
+                        try {
+                            Thread.sleep(1000); // Wait 1 seconds
+                            refereeCount = 0;
+                        } catch (InterruptedException error) {
+                            error.printStackTrace();
+                        }
                     }
                 }
             } catch (FIPAException e) {
