@@ -144,12 +144,8 @@ public class Organizer extends Agent {
                 else chosenReferees = availableReferee;
                  
                 //answer at referee the assigned pool
-                ///////////////////////////////////////////////////////////////////////////////////////////////
-                int poolCount = 0, refereeCount = 0;
-                while(poolCount < numPools){
-                //for (int j = 0; j < numPools; j++) {
-                    // AID refereeAIDName = chosenReferees.get(j).getKey();
-                    // String refereeName = chosenReferees.get(j).getValue();
+                int poolCount = 1, refereeCount = 0;
+                while(poolCount <= numPools){
                     AID refereeAIDName = chosenReferees.get(refereeCount).getKey();
                     String refereeName = chosenReferees.get(refereeCount).getValue();
 
@@ -161,11 +157,9 @@ public class Organizer extends Agent {
                     mex.setConversationId("PoolComposition");
 
                     StringBuilder contentBuilder = new StringBuilder();
-                    //contentBuilder.append(j + 1); // pool number in head
-                    contentBuilder.append(poolCount +1); // pool number in head
+                    contentBuilder.append(poolCount); // pool number in head
                     
-                    // List<String[]> fencersInPool = pools.get(j + 1);
-                    List<String[]> fencersInPool = pools.get(poolCount+1);
+                    List<String[]> fencersInPool = pools.get(poolCount);
                     for (String[] fencer : fencersInPool) {
                         contentBuilder.append(",").append(fencer[1]); 
                     }
@@ -173,8 +167,7 @@ public class Organizer extends Agent {
                     mex.setContent(contentBuilder.toString()); //all body are AID of fencer
                     send(mex);
                     
-                    // int poolNumber = j + 1;
-                    int poolNumber = poolCount + 1;
+                    int poolNumber = poolCount;
                     if (gui != null) {
                         final String finalRefereeName = refereeName;
                         SwingUtilities.invokeLater(() -> gui.updatePoolReferee(poolNumber, finalRefereeName));
