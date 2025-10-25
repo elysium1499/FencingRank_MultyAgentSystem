@@ -25,15 +25,15 @@ public class Fencer extends Agent {
             emotion = (String) fencerField[6];
             rank = (String) fencerField[7];
 
-            // Behaviour to send the registration
-            addBehaviour(new OneShotBehaviour() {
-                public void action() {
-                    ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
-                    mex.addReceiver(new jade.core.AID("organizer", jade.core.AID.ISLOCALNAME));
-                    mex.setContent(getAID().getLocalName() + "," + name + "," + rank);
-                    send(mex);
-                }
-            });
+            // // Behaviour to send the registration
+            // addBehaviour(new OneShotBehaviour() {
+            //     public void action() {
+            //         ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
+            //         mex.addReceiver(new jade.core.AID("organizer", jade.core.AID.ISLOCALNAME));
+            //         mex.setContent(getAID().getLocalName() + "," + name + "," + rank);
+            //         send(mex);
+            //     }
+            // });
         } else {
             System.out.println("CSV column miss: " + getLocalName());
         }
@@ -67,6 +67,11 @@ public class Fencer extends Agent {
                     doDelete();
                 }
             } else {
+                ACLMessage mess = new ACLMessage(ACLMessage.INFORM);
+                mess.addReceiver(new jade.core.AID("organizer", jade.core.AID.ISLOCALNAME));
+                mess.setContent(getAID().getLocalName() + "," + name + "," + rank);
+                send(mess);
+
                 block();
             }
         }

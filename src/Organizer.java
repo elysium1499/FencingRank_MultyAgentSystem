@@ -30,7 +30,6 @@ public class Organizer extends Agent {
 
     private class Registrations extends Behaviour {
         private long time = System.currentTimeMillis();
-
         public void action() {
             boolean receivedAny = false;
             ACLMessage mex;
@@ -43,12 +42,10 @@ public class Organizer extends Agent {
                     String[] fencer = mex.getContent().split(",");
                     registeredFencer.put(fencer[0], new String[]{fencer[1], fencer[2]});
                     fencerStats.put(fencer[0], new int[]{0, 0, 0});
-
                     // Send confirmation reply
                     ACLMessage reply = mex.createReply();
                     reply.setPerformative(ACLMessage.CONFIRM);
                     send(reply);
-
                     receivedAny = true;
                 }
             }

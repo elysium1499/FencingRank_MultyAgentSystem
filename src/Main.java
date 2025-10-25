@@ -28,8 +28,8 @@ public class Main {
                 fencerId.add(fencerName + "-" + fencerRank);
 
                 String agentName = "fencer" + (i + 1);
-                AgentController Fencer = cc.createNewAgent(agentName, Fencer.class.getName(), fencers.get(i));
-                Fencer.start();
+                AgentController fencer = cc.createNewAgent(agentName, Fencer.class.getName(), fencers.get(i));
+                fencer.start();
             }
 
             // create referee agent
@@ -38,8 +38,8 @@ public class Main {
 
             for (String[] refereeData : referees) {
                 String agentName = "referee" + refereeCount++;
-                AgentController Referee = cc.createNewAgent(agentName, Referee.class.getName(), refereeData);
-                Referee.start();
+                AgentController referee = cc.createNewAgent(agentName, Referee.class.getName(), refereeData);
+                referee.start();
             }
 
         } catch (Exception error) {
