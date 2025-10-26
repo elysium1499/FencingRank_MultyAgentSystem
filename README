@@ -5,6 +5,4 @@ Start project from ./project:
 - java -cp "bin;lib\*" Main
 
 
--- quando chiedo se gli arbitri sono disponibili non ho considerato che possono essere meno dei pool e devo riusare arbitri che ho gia 
-    (per gironi funziona ma da errore alle dirette)
 -- invece di fare in modo di avere 2^n persone che passano alle dirette provare a far passare tutti

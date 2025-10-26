@@ -25,15 +25,6 @@ public class Fencer extends Agent {
             emotion = (String) fencerField[6];
             rank = (String) fencerField[7];
 
-            // // Behaviour to send the registration
-            // addBehaviour(new OneShotBehaviour() {
-            //     public void action() {
-            //         ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
-            //         mex.addReceiver(new jade.core.AID("organizer", jade.core.AID.ISLOCALNAME));
-            //         mex.setContent(getAID().getLocalName() + "," + name + "," + rank);
-            //         send(mex);
-            //     }
-            // });
         } else {
             System.out.println("CSV column miss: " + getLocalName());
         }
@@ -50,6 +41,7 @@ public class Fencer extends Agent {
                 // Registration confirm
                 if (!registered && mex.getPerformative() == ACLMessage.CONFIRM) {
                     registered = true;
+                    System.out.println("Registered: " + name);
                 }
                 
                 //bout information: receive referee message about bout

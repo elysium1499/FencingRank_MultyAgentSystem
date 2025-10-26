@@ -14,7 +14,7 @@ import javax.swing.SwingUtilities;
 public class Organizer extends Agent {
     private Map<String,String[]> registeredFencer = new HashMap<>(); // fencerAIDname [Name, rank]
     public Map<Integer, List<String[]>> pools = new HashMap<>(); // poolNumber [AIDNameFencer]
-    private List<String[]> poolReferees = new ArrayList<>(); // [AIDNameReferee NameReferee]
+    private List<String[]> poolReferees = new ArrayList<>(); // [AIDNameReferee NameReferee]--(index+1=poolNumber)
     private Map<String, int[]> fencerStats = new HashMap<>(); // FencerAID [numVictory, SD, SR]
     private List<String[]> eliminationBout = new ArrayList<>(); // [FencerAID, FencerAIDAdversary]
     
@@ -42,6 +42,7 @@ public class Organizer extends Agent {
                     String[] fencer = mex.getContent().split(",");
                     registeredFencer.put(fencer[0], new String[]{fencer[1], fencer[2]});
                     fencerStats.put(fencer[0], new int[]{0, 0, 0});
+                    
                     // Send confirmation reply
                     ACLMessage reply = mex.createReply();
                     reply.setPerformative(ACLMessage.CONFIRM);
@@ -54,7 +55,7 @@ public class Organizer extends Agent {
             if (!receivedAny) {
                 long now = System.currentTimeMillis();
                 if (!registrationClosed && now - time >= 10_000) {
-                    System.out.println("Closing registration.");
+                    System.out.println("---------------------- Closing registration ----------------------");
                     generatePools();
                     registrationClosed = true;
                 } else {
@@ -110,36 +111,56 @@ public class Organizer extends Agent {
 
                 // Look all referee available
                 DFAgentDescription[] referees = DFService.search(myAgent, template);
-                Map<AID, String> availableReferees = new HashMap<>(); 
+                Map<AID, String> availableReferees = new HashMap<>();
+                int tryFound= 0;
 
-                // Send request at all referee
-                for (DFAgentDescription dfad : referees) {
-                    AID refereeAID = dfad.getName();
-                    ACLMessage req = new ACLMessage(ACLMessage.REQUEST);
-                    req.addReceiver(refereeAID);
-                    send(req);
-                }
+                // loop to have necessary referee
+                while (availableReferees.size() < numPools) {
 
-                // Wait answer for 10 second
-                long startTime = System.currentTimeMillis();
-                while (System.currentTimeMillis() - startTime < 10000) {
-                    ACLMessage reply = receive();
-                    if (reply != null && reply.getPerformative() == ACLMessage.AGREE) {
-                        AID refereeAID = reply.getSender();
-                        String Name = reply.getContent();
-                        availableReferees.put(refereeAID, Name);
+                    // Send request
+                    for (DFAgentDescription dfad : referees) {
+                        AID refereeAID = dfad.getName();
+                        if (!availableReferees.containsKey(refereeAID)) {
+                            ACLMessage req = new ACLMessage(ACLMessage.REQUEST);
+                            req.addReceiver(refereeAID);
+                            req.setContent("Sei disponibile come arbitro?");
+                            send(req);
+                        }
                     }
+
+                    // Attendi risposte per 10 secondi
+                    long startTime = System.currentTimeMillis();
+                    while (System.currentTimeMillis() - startTime < 10000) {
+                        ACLMessage reply = receive();
+                        if (reply != null && reply.getPerformative() == ACLMessage.AGREE) {
+                            AID refereeAID = reply.getSender();
+                            String name = reply.getContent();
+                            availableReferees.put(refereeAID, name);
+
+                            if (availableReferees.size() >= numPools)
+                                break; //have necessary referee
+                        } else {
+                            block(500);
+                        }
+                    }
+
+                    // Se non ci sono abbastanza arbitri dopo il timeout
+                    if (availableReferees.size() < numPools) {
+                        System.out.println("Need more referee, retry...");
+                        tryFound++;
+                    }
+                    if(tryFound>=10) throw new RuntimeException("Referee are not enough");
+                    
                 }
 
+                // We have necessary referees
+                System.out.println("Fount referees");
+                
                 // Chose n random referee
                 List<Map.Entry<AID, String>> availableReferee = new ArrayList<>(availableReferees.entrySet());
                 Collections.shuffle(availableReferee);
-                List<Map.Entry<AID, String>> chosenReferees = null;
-
-                if(availableReferee.size() > pools.size())
-                    chosenReferees = availableReferee.subList(0, Math.min(numPools, availableReferee.size()));
-                else chosenReferees = availableReferee;
-                 
+                List<Map.Entry<AID, String>> chosenReferees = availableReferee.subList(0, Math.min(numPools, availableReferee.size()));
+            
                 //answer at referee the assigned pool
                 int poolCount = 1, refereeCount = 0;
                 while(poolCount <= numPools){
@@ -172,15 +193,6 @@ public class Organizer extends Agent {
 
                     poolCount++;
                     refereeCount++;
-
-                    if(refereeCount == chosenReferees.size()){
-                        try {
-                            Thread.sleep(1000); // Wait 1 seconds
-                            refereeCount = 0;
-                        } catch (InterruptedException error) {
-                            error.printStackTrace();
-                        }
-                    }
                 }
             } catch (FIPAException e) {
                 e.printStackTrace();
@@ -279,9 +291,7 @@ public class Organizer extends Agent {
                                 eliminationBout.add(new String[]{winners.get(0), winners.get(1)});
                                 
                                 //recover name for GUI tree
-                                String fencer1AID = winners.get(0);
-                                String fencer2AID = winners.get(1);
-                                eliminationBoutName.add(new String[]{registeredFencer.get(fencer1AID)[0], registeredFencer.get(fencer2AID)[0]});
+                                eliminationBoutName.add(new String[]{registeredFencer.get(winners.get(0))[0], registeredFencer.get(winners.get(1))[0]});
 
                                 winners.remove(1);
                                 winners.remove(0);
