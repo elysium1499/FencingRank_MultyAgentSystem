@@ -124,6 +124,11 @@ public class Referee extends Agent {
                         String result = calculateBoutWinner();
 
                         if (!direct) {
+                            try {
+                                Thread.sleep(1000); // Wait 5 seconds
+                            } catch (InterruptedException error) {
+                                error.printStackTrace();
+                            }
                             ACLMessage resultMex = new ACLMessage(ACLMessage.INFORM);
                             resultMex.addReceiver(new AID("organizer", AID.ISLOCALNAME));
                             resultMex.setConversationId("resultBout");
@@ -155,10 +160,26 @@ public class Referee extends Agent {
                     }
                 } else if ("directBout".equals(conversationId)) {
                     String[] directBout = mex.getContent().split(",");   //fencerAID1,fencerAID2
-                    currentBout = new String[]{directBout[0], directBout[1]};
-                    direct = true;
                     
-                    sendBoutMessage(currentBout[0]);
+                    if(!directBout[0].equals("NoOne") && directBout[1].equals("NoOne")){
+                        System.out.println("Direct winner : "+ directBout[0]);
+                        ACLMessage resultMexDirect = new ACLMessage(ACLMessage.INFORM);
+                        resultMexDirect.addReceiver(new AID("organizer", AID.ISLOCALNAME));
+                        resultMexDirect.setConversationId("resultDirectBout");
+                        resultMexDirect.setContent(directBout[0]);
+                        send(resultMexDirect);
+                    }else if(directBout[0].equals("NoOne") && directBout[1].equals("NoOne")){
+                        System.out.println("Direct winner : "+ "NoOne");
+                        ACLMessage resultMexDirect = new ACLMessage(ACLMessage.INFORM);
+                        resultMexDirect.addReceiver(new AID("organizer", AID.ISLOCALNAME));
+                        resultMexDirect.setConversationId("resultDirectBout");
+                        resultMexDirect.setContent("NoOne");
+                        send(resultMexDirect);
+                    }else{
+                        currentBout = new String[]{directBout[0], directBout[1]};
+                        direct = true;
+                        sendBoutMessage(currentBout[0]);
+                    }
                 }
             } else {
                 block();
@@ -172,14 +193,12 @@ public class Referee extends Agent {
         public void action() {
             ACLMessage mex = receive(mt);
             if (mex != null) {
-                if ("CLOSED".equals(mex.getContent())) {
-                    try { 
-                        DFService.deregister(myAgent); 
-                    } catch (FIPAException e) { 
-                        e.printStackTrace(); 
-                    }
-                    doDelete();
+                try { 
+                    DFService.deregister(myAgent); 
+                } catch (FIPAException e) { 
+                    e.printStackTrace(); 
                 }
+                doDelete();
             } else {
                 block();
             }

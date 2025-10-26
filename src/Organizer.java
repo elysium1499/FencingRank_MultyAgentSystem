@@ -116,14 +116,12 @@ public class Organizer extends Agent {
 
                 // loop to have necessary referee
                 while (availableReferees.size() < numPools) {
-
                     // Send request
                     for (DFAgentDescription dfad : referees) {
                         AID refereeAID = dfad.getName();
                         if (!availableReferees.containsKey(refereeAID)) {
                             ACLMessage req = new ACLMessage(ACLMessage.REQUEST);
                             req.addReceiver(refereeAID);
-                            req.setContent("Sei disponibile come arbitro?");
                             send(req);
                         }
                     }
@@ -217,16 +215,14 @@ public class Organizer extends Agent {
                         String score1 = parts[2];
                         String fencer2AID = parts[3];
                         String score2 = parts[4];
-
+                   
                         System.out.println("Result: " + poolNumber + ", " + registeredFencer.get(fencer1AID)[0] + " (" + score1 + ") vs " + registeredFencer.get(fencer2AID)[0] + " (" + score2 + ")");
 
-                        // Aggiorna statistiche fencer1
                         int[] stats1 = fencerStats.get(fencer1AID);
                         if (Integer.parseInt(score1) == 5) stats1[0]++;
                         stats1[1] += Integer.parseInt(score1);        
                         stats1[2] += Integer.parseInt(score2);          
 
-                        // Aggiorna statistiche fencer2
                         int[] stats2 = fencerStats.get(fencer2AID);
                         if (Integer.parseInt(score2) == 5) stats2[0]++;
                         stats2[1] += Integer.parseInt(score2);
@@ -265,14 +261,11 @@ public class Organizer extends Agent {
                                 }
                             }
                         } 
-                        eliminateWeakFencers();
                         calculateStartTree();
                     }
                 }else if(mex.getPerformative() == ACLMessage.INFORM && "resultDirectBout".equals(conversationId)){
-                    String parts = mex.getContent();
-                    if (!winners.contains(parts)) {
-                        winners.add(parts);
-                    }
+                    String winner = mex.getContent();
+                    winners.add(winner);
 
                     if(winners.size() == eliminationBout.size()){
                         //order the winner for the direct tree structure
@@ -287,11 +280,15 @@ public class Organizer extends Agent {
                             eliminationBout.clear();
                             eliminationBoutName.clear();
                             
-                            while(!winners.isEmpty()){
-                                eliminationBout.add(new String[]{winners.get(0), winners.get(1)});
-                                
-                                //recover name for GUI tree
-                                eliminationBoutName.add(new String[]{registeredFencer.get(winners.get(0))[0], registeredFencer.get(winners.get(1))[0]});
+                            while (!winners.isEmpty()) {
+                                String winner1_AID = winners.get(0);
+                                String winner2_AID = winners.get(1);
+
+                                eliminationBout.add(new String[]{winner1_AID, winner2_AID});
+                                String winner1_Name = winner1_AID.equals("NoOne") ? "NoOne" : registeredFencer.get(winner1_AID)[0];
+                                String winner2_Name = winner2_AID.equals("NoOne") ? "NoOne" : registeredFencer.get(winner2_AID)[0];
+
+                                eliminationBoutName.add(new String[]{winner1_Name, winner2_Name});
 
                                 winners.remove(1);
                                 winners.remove(0);
@@ -340,80 +337,6 @@ public class Organizer extends Agent {
             }
         }
 
-        private void eliminateWeakFencers() {
-            // Remove fencer with low victory (<=2)
-            for (Map.Entry<String, int[]> fencerFild : new HashMap<>(fencerStats).entrySet()) {
-                String fencerAID = fencerFild.getKey();
-                int[] stats = fencerFild.getValue();
-                int victories = stats[0];
-
-                if (victories <= 2) {
-                    System.out.println("Eliminating: " + registeredFencer.get(fencerAID)[0]);
-
-                    ACLMessage mex = new ACLMessage(ACLMessage.INFORM);
-                    mex.setConversationId("elimination");
-                    mex.addReceiver(new AID(fencerAID, AID.ISLOCALNAME));
-                    send(mex);      
-
-                    fencerStats.remove(fencerAID);
-
-                    for (List<String[]> poolFencerList : pools.values()) {
-                        poolFencerList.removeIf(f -> f[1].equals(fencerAID));
-                    }
-                }
-            }
-
-            // If the fencer number is not power of 2 i remove the baddests
-            int totalFencers = fencerStats.size();
-
-            // compute the highest power of 2 (totalFencers)
-            int targetSize = 1;
-            while (targetSize * 2 <= totalFencers) {
-                targetSize *= 2;
-            }
-
-            int toEliminate = totalFencers - targetSize;
-
-            if (toEliminate > 0) {
-                for (int i = 0; i < toEliminate; i++) {
-                    String worstFencerID = null;
-                    int worstFencerVictories = Integer.MAX_VALUE;
-                    int worstFencerSR = Integer.MIN_VALUE;
-
-                    // Find baddest fencer
-                    for (Map.Entry<String, int[]> fencerFild : fencerStats.entrySet()) {
-                        String fencerAID = fencerFild.getKey();
-                        int[] stats = fencerFild.getValue();
-                        int victories = stats[0];
-                        int SR = stats[2];
-
-                        if (worstFencerID == null || victories < worstFencerVictories || (victories == worstFencerVictories && SR > worstFencerSR)) {
-                            worstFencerID = fencerAID;
-                            worstFencerVictories = victories;
-                            worstFencerSR = SR;
-                        }
-                    }
-
-                    if (worstFencerID != null && fencerStats.containsKey(worstFencerID)) {
-                        final String eliminateID = worstFencerID;
-
-                        System.out.println("Eliminate: " + eliminateID);
-
-                        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-                        msg.setConversationId("elimination");
-                        msg.addReceiver(new AID(eliminateID, AID.ISLOCALNAME));
-                        send(msg);
-
-                        fencerStats.remove(eliminateID);
-
-                        for (List<String[]> poolFencerList : pools.values()) {
-                            poolFencerList.removeIf(f -> f[1].equals(eliminateID));
-                        }
-                    }
-                }
-            }
-        }
-
         private void calculateStartTree() {
             List<Object[]> fencersStatsList = new ArrayList<>();
 
@@ -447,10 +370,28 @@ public class Organizer extends Agent {
                 eliminationBout.add(new String[]{orderedFencers.get(i), orderedFencers.get(n - 1 - i)});
             }
 
-            for (String[] bout : eliminationBout) {
-                String fencer1Name = registeredFencer.get(bout[0])[0];
-                String fencer2Name = registeredFencer.get(bout[1])[0]; 
+            //--------------------------------------------------------------
+            if (n % 2 != 0) {
+                eliminationBout.add(new String[]{orderedFencers.get(n / 2), "NoOne"});
+            }
 
+            int numBouts = eliminationBout.size();
+            int nextPowerOfTwo = 1;
+            while (nextPowerOfTwo < numBouts) {
+                nextPowerOfTwo *= 2;
+            }
+
+            while (eliminationBout.size() < nextPowerOfTwo) {
+                eliminationBout.add(new String[]{"NoOne", "NoOne"});
+            }
+            //--------------------------------------------------------------
+
+            for (String[] bout : eliminationBout) {
+                // String fencer1Name = registeredFencer.get(bout[0])[0];
+                // String fencer2Name = registeredFencer.get(bout[1])[0]; 
+                String fencer1Name = bout[0].equals("NoOne") ? "NoOne" : registeredFencer.get(bout[0])[0];
+                String fencer2Name = bout[1].equals("NoOne") ? "NoOne" : registeredFencer.get(bout[1])[0];
+                
                 eliminationBoutName.add(new String[]{fencer1Name, fencer2Name});
             }
 
